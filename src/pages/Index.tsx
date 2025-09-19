@@ -7,6 +7,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import Icon from '@/components/ui/icon';
 
+type Message = {
+  id: string;
+  text: string;
+  time: string;
+  sender: 'me' | 'other';
+  senderName?: string;
+};
+
 type Chat = {
   id: string;
   name: string;
@@ -15,6 +23,7 @@ type Chat = {
   unread: number;
   avatar?: string;
   isGroup?: boolean;
+  messages: Message[];
 };
 
 type Contact = {
@@ -27,6 +36,9 @@ type Contact = {
 
 const VipMinApp = () => {
   const [activeTab, setActiveTab] = useState('chats');
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [newMessage, setNewMessage] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [chats, setChats] = useState<Chat[]>([
     {
       id: '1',
@@ -35,6 +47,11 @@ const VipMinApp = () => {
       time: '14:30',
       unread: 2,
       avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b5a0?w=100&h=100&fit=crop&crop=face',
+      messages: [
+        { id: 'm1', text: 'Привет! Как дела?', time: '14:30', sender: 'other', senderName: 'Анна' },
+        { id: 'm2', text: 'Все отлично! А у тебя?', time: '14:32', sender: 'me' },
+        { id: 'm3', text: 'Тоже хорошо! Встретимся завтра?', time: '14:33', sender: 'other', senderName: 'Анна' },
+      ]
     },
     {
       id: '2',
@@ -43,6 +60,11 @@ const VipMinApp = () => {
       time: '13:45',
       unread: 5,
       isGroup: true,
+      messages: [
+        { id: 'm4', text: 'Встреча завтра в 10:00', time: '13:45', sender: 'other', senderName: 'Михаил' },
+        { id: 'm5', text: 'Отлично, буду!', time: '13:47', sender: 'me' },
+        { id: 'm6', text: 'Я тоже приду', time: '13:48', sender: 'other', senderName: 'Анна' },
+      ]
     },
     {
       id: '3',
@@ -51,6 +73,10 @@ const VipMinApp = () => {
       time: 'Вчера',
       unread: 0,
       avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
+      messages: [
+        { id: 'm7', text: 'Отправил файлы', time: 'Вчера', sender: 'other', senderName: 'Михаил' },
+        { id: 'm8', text: 'Спасибо, получил!', time: 'Вчера', sender: 'me' },
+      ]
     },
   ]);
 
@@ -62,6 +88,10 @@ const VipMinApp = () => {
       time: '15:20',
       unread: 3,
       isGroup: true,
+      messages: [
+        { id: 'gm1', text: 'Новая версия готова!', time: '15:20', sender: 'other', senderName: 'Команда' },
+        { id: 'gm2', text: 'Отлично! Где можно скачать?', time: '15:22', sender: 'me' },
+      ]
     },
     {
       id: 'g2',
@@ -70,6 +100,9 @@ const VipMinApp = () => {
       time: '12:15',
       unread: 1,
       isGroup: true,
+      messages: [
+        { id: 'gm3', text: 'Макеты обновлены', time: '12:15', sender: 'other', senderName: 'Дизайнер' },
+      ]
     },
   ]);
 
@@ -90,12 +123,112 @@ const VipMinApp = () => {
     },
   ]);
 
+  const selectedChat = chats.find(chat => chat.id === selectedChatId) || 
+                      groups.find(group => group.id === selectedChatId);
+
   const deleteChat = (chatId: string) => {
     setChats(chats.filter(chat => chat.id !== chatId));
+    if (selectedChatId === chatId) {
+      setSelectedChatId(null);
+    }
   };
 
+  const openChat = (chatId: string) => {
+    setSelectedChatId(chatId);
+    // Mark as read
+    setChats(prevChats => 
+      prevChats.map(chat => 
+        chat.id === chatId ? { ...chat, unread: 0 } : chat
+      )
+    );
+  };
+
+  const sendMessage = () => {
+    if (!newMessage.trim() || !selectedChatId) return;
+
+    const message: Message = {
+      id: Date.now().toString(),
+      text: newMessage,
+      time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      sender: 'me'
+    };
+
+    setChats(prevChats => 
+      prevChats.map(chat => 
+        chat.id === selectedChatId 
+          ? { 
+              ...chat, 
+              messages: [...chat.messages, message],
+              lastMessage: newMessage,
+              time: message.time
+            }
+          : chat
+      )
+    );
+
+    setNewMessage('');
+  };
+
+  const deleteMessage = (messageId: string) => {
+    if (!selectedChatId) return;
+
+    setChats(prevChats => 
+      prevChats.map(chat => 
+        chat.id === selectedChatId 
+          ? { 
+              ...chat, 
+              messages: chat.messages.filter(msg => msg.id !== messageId)
+            }
+          : chat
+      )
+    );
+  };
+
+  const addNewChat = () => {
+    const newChat: Chat = {
+      id: Date.now().toString(),
+      name: 'Новый чат',
+      lastMessage: 'Чат создан',
+      time: 'Сейчас',
+      unread: 0,
+      messages: []
+    };
+    setChats([newChat, ...chats]);
+  };
+
+  const addNewGroup = () => {
+    const newGroup: Chat = {
+      id: Date.now().toString(),
+      name: 'Новая группа',
+      lastMessage: 'Группа создана',
+      time: 'Сейчас',
+      unread: 0,
+      isGroup: true,
+      messages: []
+    };
+    setChats([newGroup, ...chats]);
+  };
+
+  const filteredChats = chats.filter(chat => 
+    chat.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredGroups = groups.filter(group => 
+    group.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredContacts = contacts.filter(contact => 
+    contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    contact.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const renderChatItem = (chat: Chat, onDelete?: (id: string) => void) => (
-    <Card key={chat.id} className="p-3 mb-2 hover:bg-vip-gray-50 transition-colors cursor-pointer animate-fade-in">
+    <Card 
+      key={chat.id} 
+      className={`p-3 mb-2 hover:bg-vip-gray-50 transition-colors cursor-pointer animate-fade-in ${
+        selectedChatId === chat.id ? 'bg-vip-blue bg-opacity-10 border-vip-blue' : ''
+      }`}
+      onClick={() => openChat(chat.id)}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3 flex-1">
           <Avatar className="h-12 w-12">
@@ -146,6 +279,43 @@ const VipMinApp = () => {
     </Card>
   );
 
+  const renderMessage = (message: Message) => (
+    <div 
+      key={message.id}
+      className={`flex mb-4 animate-fade-in ${
+        message.sender === 'me' ? 'justify-end' : 'justify-start'
+      }`}
+    >
+      <div 
+        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl relative group ${
+          message.sender === 'me' 
+            ? 'bg-vip-blue text-white rounded-br-sm' 
+            : 'bg-vip-gray-100 text-vip-gray-900 rounded-bl-sm'
+        }`}
+      >
+        {message.sender === 'other' && message.senderName && (
+          <div className="text-xs font-semibold text-vip-blue mb-1">
+            {message.senderName}
+          </div>
+        )}
+        <div className="text-sm">{message.text}</div>
+        <div className={`text-xs mt-1 ${
+          message.sender === 'me' ? 'text-white text-opacity-70' : 'text-vip-gray-500'
+        }`}>
+          {message.time}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => deleteMessage(message.id)}
+          className="absolute -top-2 -right-2 w-6 h-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity bg-vip-red hover:bg-vip-red text-white rounded-full"
+        >
+          <Icon name="X" size={12} />
+        </Button>
+      </div>
+    </div>
+  );
+
   const renderContactItem = (contact: Contact) => (
     <Card key={contact.id} className="p-3 mb-2 hover:bg-vip-gray-50 transition-colors cursor-pointer animate-fade-in">
       <div className="flex items-center space-x-3">
@@ -170,7 +340,31 @@ const VipMinApp = () => {
           </p>
         </div>
         
-        <Button variant="ghost" size="sm" className="text-vip-blue">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="text-vip-blue"
+          onClick={() => {
+            // Create new chat with this contact
+            const existingChat = chats.find(chat => chat.name === contact.name);
+            if (existingChat) {
+              openChat(existingChat.id);
+            } else {
+              const newChat: Chat = {
+                id: Date.now().toString(),
+                name: contact.name,
+                lastMessage: 'Чат создан',
+                time: 'Сейчас',
+                unread: 0,
+                avatar: contact.avatar,
+                messages: []
+              };
+              setChats([newChat, ...chats]);
+              openChat(newChat.id);
+            }
+            setActiveTab('chats');
+          }}
+        >
           <Icon name="MessageCircle" size={20} />
         </Button>
       </div>
@@ -203,18 +397,30 @@ const VipMinApp = () => {
             </div>
             
             <div className="flex items-center space-x-2">
-              <Button variant="ghost" size="sm" className="text-vip-gray-600">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-vip-gray-600"
+                onClick={() => setSearchQuery('')}
+              >
                 <Icon name="Search" size={20} />
               </Button>
-              <Button variant="ghost" size="sm" className="text-vip-gray-600">
-                <Icon name="Plus" size={20} />
-              </Button>
+              {selectedChatId && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-vip-gray-600"
+                  onClick={() => setSelectedChatId(null)}
+                >
+                  <Icon name="ArrowLeft" size={20} />
+                </Button>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-6xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Navigation Sidebar */}
           <div className="lg:col-span-1">
@@ -224,7 +430,10 @@ const VipMinApp = () => {
                 {navigationItems.map((item) => (
                   <button
                     key={item.id}
-                    onClick={() => setActiveTab(item.id)}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      setSelectedChatId(null);
+                    }}
                     className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200 ${
                       activeTab === item.id
                         ? 'bg-vip-blue text-white shadow-md transform scale-105'
@@ -248,12 +457,83 @@ const VipMinApp = () => {
 
           {/* Main Content */}
           <div className="lg:col-span-3">
-            <div className="space-y-6">
+            {selectedChatId && selectedChat ? (
+              // Chat View
+              <Card className="h-[600px] flex flex-col">
+                {/* Chat Header */}
+                <div className="p-4 border-b border-vip-gray-200 flex items-center space-x-3">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setSelectedChatId(null)}
+                    className="lg:hidden"
+                  >
+                    <Icon name="ArrowLeft" size={20} />
+                  </Button>
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={selectedChat.avatar} />
+                    <AvatarFallback className="bg-vip-blue text-white">
+                      {selectedChat.isGroup ? (
+                        <Icon name="Users" size={16} />
+                      ) : (
+                        selectedChat.name.split(' ').map(n => n[0]).join('')
+                      )}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h3 className="font-semibold text-vip-gray-900">{selectedChat.name}</h3>
+                    <p className="text-sm text-vip-gray-500">
+                      {selectedChat.isGroup ? 'Группа' : 'В сети'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Messages */}
+                <div className="flex-1 p-4 overflow-y-auto">
+                  {selectedChat.messages.length > 0 ? (
+                    selectedChat.messages.map(message => renderMessage(message))
+                  ) : (
+                    <div className="text-center py-12">
+                      <Icon name="MessageCircle" size={48} className="mx-auto text-vip-gray-300 mb-4" />
+                      <p className="text-vip-gray-500">Напишите первое сообщение</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Message Input */}
+                <div className="p-4 border-t border-vip-gray-200">
+                  <div className="flex space-x-2">
+                    <Input
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      placeholder="Введите сообщение..."
+                      className="flex-1"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          sendMessage();
+                        }
+                      }}
+                    />
+                    <Button 
+                      onClick={sendMessage}
+                      className="bg-vip-blue hover:bg-vip-purple text-white"
+                      disabled={!newMessage.trim()}
+                    >
+                      <Icon name="Send" size={20} />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ) : (
+              // List View
+              <div className="space-y-6">
               {/* Search Bar */}
               <Card className="p-4">
                 <div className="relative">
                   <Icon name="Search" size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-vip-gray-400" />
                   <Input 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Поиск чатов, групп и контактов..."
                     className="pl-10 pr-4 py-3 border-vip-gray-200 focus:border-vip-blue focus:ring-vip-blue"
                   />
@@ -266,14 +546,17 @@ const VipMinApp = () => {
                   <div className="animate-fade-in">
                     <div className="flex items-center justify-between mb-6">
                       <h2 className="text-2xl font-bold text-vip-gray-900">Чаты</h2>
-                      <Button className="bg-vip-blue hover:bg-vip-purple text-white">
+                      <Button 
+                        onClick={addNewChat}
+                        className="bg-vip-blue hover:bg-vip-purple text-white"
+                      >
                         <Icon name="Plus" size={20} className="mr-2" />
                         Новый чат
                       </Button>
                     </div>
                     <div className="space-y-2">
-                      {chats.length > 0 ? (
-                        chats.map(chat => renderChatItem(chat, deleteChat))
+                      {filteredChats.length > 0 ? (
+                        filteredChats.map(chat => renderChatItem(chat, deleteChat))
                       ) : (
                         <div className="text-center py-12">
                           <Icon name="MessageCircle" size={48} className="mx-auto text-vip-gray-300 mb-4" />
@@ -288,13 +571,16 @@ const VipMinApp = () => {
                   <div className="animate-fade-in">
                     <div className="flex items-center justify-between mb-6">
                       <h2 className="text-2xl font-bold text-vip-gray-900">Группы</h2>
-                      <Button className="bg-vip-purple hover:bg-vip-blue text-white">
+                      <Button 
+                        onClick={addNewGroup}
+                        className="bg-vip-purple hover:bg-vip-blue text-white"
+                      >
                         <Icon name="Users" size={20} className="mr-2" />
                         Создать группу
                       </Button>
                     </div>
                     <div className="space-y-2">
-                      {groups.map(group => renderChatItem(group))}
+                      {filteredGroups.map(group => renderChatItem(group))}
                     </div>
                   </div>
                 )}
@@ -309,7 +595,7 @@ const VipMinApp = () => {
                       </Button>
                     </div>
                     <div className="space-y-2">
-                      {contacts.map(contact => renderContactItem(contact))}
+                      {filteredContacts.map(contact => renderContactItem(contact))}
                     </div>
                   </div>
                 )}
@@ -376,7 +662,8 @@ const VipMinApp = () => {
                   </div>
                 )}
               </Card>
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
